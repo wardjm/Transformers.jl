@@ -1,14 +1,25 @@
-using Flux
-using Flux: GPU_BACKEND, gpu_backend!
+using Adapt
+using Preferences
 using Functors
+using MLDataDevices
+using MLDataDevices: AbstractDevice, CPUDevice, CUDADevice, AMDGPUDevice, MetalDevice
 
 is_precompiling() = ccall(:jl_generating_output, Cint, ()) == 1
 
 """
+    gpu_backend()
+
+The name of the currently selected gpu backend, as set by `MLDataDevices.gpu_backend!`.
+ Returns `""` when no backend preference is set, in which case the backend is auto-detected.
+"""
+gpu_backend() = something(Preferences.load_preference(MLDataDevices, "gpu_backend", nothing), "")
+
+"""
     enable_gpu(t=true)
 
-Enable gpu for `todevice`, disable with `enable_gpu(false)`. The backend is selected by `Flux.gpu_backend!`.
- Should only be used in user scripts.
+Enable gpu for `todevice`, disable with `enable_gpu(false)`. The backend is selected by
+ `MLDataDevices.gpu_backend!`, or auto-detected when no preference is set. Should only be
+ used in user scripts.
 """
 function enable_gpu(t::Bool=true)
     if is_precompiling()
@@ -21,67 +32,50 @@ function enable_gpu(t::Bool=true)
     if !t
         return @eval @inline todevice(args...; kws...) = tocpudevice(args...; kws...)
     end
-    @static if GPU_BACKEND == "CUDA"
-        @eval Main begin
-            using CUDA
-            CUDA.functional() || error("CUDA not functional")
-        end
-    elseif GPU_BACKEND == "AMDGPU"
-        @eval Main begin
-            using AMDGPU
-            AMDGPU.functional() || error("AMDGPU not functional")
-        end
-    elseif GPU_BACKEND == "Metal"
-        @eval Main begin
-            using Metal
-            Metal.functional() || error("Metal not functional")
-        end
-    elseif GPU_BACKEND == "CPU"
+    backend = gpu_backend()
+    if backend == "CUDA"
+        @eval Main using CUDA
+    elseif backend == "AMDGPU"
+        @eval Main using AMDGPU
+    elseif backend == "Metal"
+        @eval Main using Metal
+    elseif backend == "CPU" || isempty(backend)
+        # no trigger package to load; `gpu_device` picks whatever is functional
     else
-        error("Unsupported GPU backend: $GPU_BACKEND")
+        error("Unsupported GPU backend: $backend")
     end
-    @eval @inline todevice(args...; kws...) = togpudevice(args...; kws...)
+    MLDataDevices.reset_gpu_device!()
+    MLDataDevices.gpu_device(; force = backend != "CPU")
+    return @eval @inline todevice(args...; kws...) = togpudevice(args...; kws...)
 end
 
 """
     todevice(x)
 
-Move data to device, only when gpu is enable with `enable_gpu`, basically equal `Flux.gpu`. Otherwise just `Flux.cpu`.
+Move data to device, only when gpu is enable with `enable_gpu`, basically equal
+ `MLDataDevices.gpu_device()(x)`. Otherwise just `MLDataDevices.cpu_device()(x)`.
 """
 @inline todevice(args...; kws...) = tocpudevice(args...; kws...)
 
 """
     togpudevice(x)
 
-Move data to gpu device, backend selected by `Flux.gpu_backend!`.
+Move data to gpu device, backend selected by `MLDataDevices.gpu_backend!`.
 """
-@inline function togpudevice(args...; kws...)
-    @static if GPU_BACKEND == "CUDA"
-        return tocudadevice(args...; kws...)
-    elseif GPU_BACKEND == "AMDGPU"
-        return toamdgpudevice(args...; kws...)
-    elseif GPU_BACKEND == "Metal"
-        return tometaldevice(args...; kws...)
-    elseif GPU_BACKEND == "CPU"
-        return tocpudevice(args...; kws...)
-    else
-        error("Unsupported GPU backend: $GPU_BACKEND")
-    end
-end
+@inline togpudevice(args...; kws...) = toxdevice(MLDataDevices.gpu_device(), args...; kws...)
 
-const FluxAdaptor = Union{Flux.FluxCPUAdaptor, Flux.FluxCUDAAdaptor, Flux.FluxAMDGPUAdaptor, Flux.FluxMetalAdaptor}
-tocpudevice(args...; cache = IdDict()) = toxdevice(Flux.FluxCPUAdaptor(), args...; cache)
-tocudadevice(args...; cache = IdDict()) = toxdevice(Flux.FluxCUDAAdaptor(), args...; cache)
-toamdgpudevice(args...; cache = IdDict()) = toxdevice(Flux.FluxAMDGPUAdaptor(), args...; cache)
-tometaldevice(args...; cache = IdDict()) = toxdevice(Flux.FluxMetalAdaptor(), args...; cache)
+tocpudevice(args...; cache = IdDict()) = toxdevice(CPUDevice(), args...; cache)
+tocudadevice(args...; cache = IdDict()) = toxdevice(CUDADevice(), args...; cache)
+toamdgpudevice(args...; cache = IdDict()) = toxdevice(AMDGPUDevice(), args...; cache)
+tometaldevice(args...; cache = IdDict()) = toxdevice(MetalDevice(), args...; cache)
 
-toxdevice(adaptor::FluxAdaptor, x; cache = IdDict()) = _toxdevice(adaptor, x, cache)
-function toxdevice(adaptor::FluxAdaptor, x, xs...; cache = IdDict())
+toxdevice(adaptor::AbstractDevice, x; cache = IdDict()) = _toxdevice(adaptor, x, cache)
+function toxdevice(adaptor::AbstractDevice, x, xs...; cache = IdDict())
     return (toxdevice(adaptor, x; cache), map(xi->toxdevice(adaptor, xi; cache), xs)...)
 end
-toxdevice(adaptor::FluxAdaptor, x::Tuple; cache = IdDict()) = toxdevice(adaptor, x...; cache)
-toxdevice(adaptor::FluxAdaptor, x::Tuple{Any}; cache = IdDict()) = (toxdevice(adaptor, x...; cache),)
-toxdevice(adaptor::FluxAdaptor, x::NamedTuple{name}; cache = IdDict()) where name =
+toxdevice(adaptor::AbstractDevice, x::Tuple; cache = IdDict()) = toxdevice(adaptor, x...; cache)
+toxdevice(adaptor::AbstractDevice, x::Tuple{Any}; cache = IdDict()) = (toxdevice(adaptor, x...; cache),)
+toxdevice(adaptor::AbstractDevice, x::NamedTuple{name}; cache = IdDict()) where name =
     NamedTuple{name}(toxdevice(adaptor, values(x); cache))
 
 struct AdaptorCache{A, C} <: AbstractDict{Any, Any}
@@ -93,7 +87,7 @@ Base.iterate(cache::AdaptorCache, state...) = iterate(cache.cache, state...)
 Base.setindex!(cache::AdaptorCache, value, key) = setindex!(cache.cache, value, key)
 function __cacheget_generator__(world, source, self, cache, x)
     adaptor = cache.parameters[1]
-    RT = Core.Compiler.return_type(Flux.adapt, Tuple{adaptor, x}, world)
+    RT = Core.Compiler.return_type(Adapt.adapt, Tuple{adaptor, x}, world)
     body = Expr(:call, GlobalRef(Base, :getindex), Expr(:., :cache, QuoteNode(:cache)), :x)
     body = Expr(:(::), body, RT)
     expr = Expr(:lambda, [Symbol("#self#"), :cache, :x],
@@ -125,17 +119,14 @@ function (walk::AdaptorWalk)(recurse, x, ys...)
     end
 end
 
-# https://github.com/FluxML/Flux.jl/blob/c442f0ca9ef716dfbc215f2b4422b6c34099f649/src/functor.jl#L182
-# https://github.com/FluxML/Flux.jl/blob/c442f0ca9ef716dfbc215f2b4422b6c34099f649/ext/FluxCUDAExt/functor.jl#L56
-# https://github.com/FluxML/Flux.jl/blob/c442f0ca9ef716dfbc215f2b4422b6c34099f649/ext/FluxAMDGPUExt/functor.jl#L81
-# https://github.com/FluxML/Flux.jl/blob/c442f0ca9ef716dfbc215f2b4422b6c34099f649/ext/FluxMetalExt/functor.jl#L33
-# https://github.com/FluxML/Functors.jl/blob/cfc6a608e309c64e4da0f44cd937cb9efa4fd6c7/src/maps.jl#L11
+# https://github.com/LuxDL/Lux.jl/blob/main/lib/MLDataDevices/src/public.jl
+# `(::AbstractDevice)(x)` is `Functors.fmap(Base.Fix1(Adapt.adapt, dev), x; exclude = isleaf)`;
+#  we reimplement it with a type-stable cache so that shared arrays are only moved once.
 @inline function __toxdevice(adaptor, cache, x, exclude, warnf)
     !isnothing(warnf) && warnf()
-    walk = Functors.ExcludeWalk(Functors.DefaultWalk(), Base.Fix1(Flux.adapt, adaptor), exclude)
+    walk = Functors.ExcludeWalk(Functors.DefaultWalk(), Base.Fix1(Adapt.adapt, adaptor), exclude)
     walk = AdaptorWalk(walk, AdaptorCache(adaptor, cache))
     return Functors.execute(walk, x)
 end
 
-# overload in extensions
-_toxdevice(adaptor::Flux.FluxCPUAdaptor, x, cache) = __toxdevice(adaptor, cache, x, Flux._isleaf, nothing)
+_toxdevice(adaptor::AbstractDevice, x, cache) = __toxdevice(adaptor, cache, x, MLDataDevices.isleaf, nothing)
