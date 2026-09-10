@@ -55,8 +55,8 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 #   PrimitiveOneHot pins GPUArraysCore = "0.1" (NNlib 0.9.42+, needed by Flux 0.16, wants 0.2)
 # Note: [sources] requires Julia >= 1.11; it is silently ignored on 1.10.
 [sources]
-NeuralAttentionlib = {url = "https://github.com/wardjm/NeuralAttentionlib.jl", rev = "compat-bump"}
-PrimitiveOneHot = {url = "https://github.com/wardjm/PrimitiveOneHot.jl", rev = "compat-bump"}
+NeuralAttentionlib = {url = "https://github.com/wardjm/NeuralAttentionlib.jl", rev = "master"}
+PrimitiveOneHot = {url = "https://github.com/wardjm/PrimitiveOneHot.jl", rev = "master"}
 
 [compat]
 Adapt = "4"
