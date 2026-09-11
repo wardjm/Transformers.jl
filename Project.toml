@@ -56,7 +56,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 BytePairEncoding = {url = "https://github.com/wardjm/BytePairEncoding.jl", rev = "master"}
 NeuralAttentionlib = {url = "https://github.com/wardjm/NeuralAttentionlib.jl", rev = "master"}
 PrimitiveOneHot = {url = "https://github.com/wardjm/PrimitiveOneHot.jl", rev = "master"}
-TextEncodeBase = {url = "https://github.com/wardjm/TextEncodeBase.jl", rev = "master"}
+TextEncodeBase = {url = "https://github.com/wardjm/TextEncodeBase.jl", rev = "main"}
 
 [compat]
 Adapt = "4"
