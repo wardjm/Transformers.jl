@@ -49,14 +49,14 @@ ValSplit = "0625e100-946b-11ec-09cd-6328dd093154"
 WordTokenizers = "796a5d58-b03d-544a-977e-18100b691f6e"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
-# Zygote 0.7 / NNlib 0.9.42+ are blocked by compat caps in two upstream packages
+# Zygote 0.7 / NNlib 0.9.42+ are blocked by compat caps in upstream packages
 # that are no longer maintained, so we resolve against forks carrying the bumps:
-#   NeuralAttentionlib pins Zygote = "0.6" (weakdep extension compat)
-#   PrimitiveOneHot pins GPUArraysCore = "0.1" (NNlib 0.9.42+, needed by Flux 0.16, wants 0.2)
 # Note: [sources] requires Julia >= 1.11; it is silently ignored on 1.10.
 [sources]
+BytePairEncoding = {url = "https://github.com/wardjm/BytePairEncoding.jl", rev = "master"}
 NeuralAttentionlib = {url = "https://github.com/wardjm/NeuralAttentionlib.jl", rev = "master"}
 PrimitiveOneHot = {url = "https://github.com/wardjm/PrimitiveOneHot.jl", rev = "master"}
+TextEncodeBase = {url = "https://github.com/wardjm/TextEncodeBase.jl", rev = "master"}
 
 [compat]
 Adapt = "4"
