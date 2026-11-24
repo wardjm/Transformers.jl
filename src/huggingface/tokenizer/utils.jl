@@ -6,7 +6,7 @@ import ..TextEncoders
 
 function load_special_tokens_map(special_tokens_map_json)
     special_tokens = Dict{Symbol, String}()
-    for (k, v) in JSON3.read(read(special_tokens_map_json))
+    for (k, v) in json_load(special_tokens_map_json)
         val = v isa AbstractDict ? v["content"] : v
         if val isa String
             special_tokens[k] = val

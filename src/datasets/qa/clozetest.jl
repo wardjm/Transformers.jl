@@ -1,5 +1,5 @@
 module ClozeTest
-using Fetch
+using ..Datasets: gdownload
 using DataDeps
 
 using ..Datasets: Dataset

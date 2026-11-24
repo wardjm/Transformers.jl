@@ -1,12 +1,16 @@
 using Mmap
-using JSON3
+using JSON
 using HuggingFaceApi: list_model_files
 
 function mmap_open(file, fsz = filesize(file))
     return open(f->Mmap.mmap(f, Vector{UInt8}, (Int(fsz), )), file, "r")
 end
 
-json_load(f) = JSON3.read(mmap_open(f))
+# Parse with Symbol-keyed objects so iteration yields Symbols (as JSON3 did); `JSON.Object`
+# lookups accept both String and Symbol keys, and support `obj.field` access.
+const JSONObject = JSON.Object{Symbol, Any}
+json_parse(x) = JSON.parse(x; dicttype = JSONObject)
+json_load(f) = json_parse(mmap_open(f))
 
 _ensure(f::Function, A, args...; kwargs...) = isnothing(A) ? f(args...; kwargs...) : A
 

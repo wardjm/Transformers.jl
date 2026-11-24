@@ -176,7 +176,11 @@ function Base.getproperty(e::TrfTextEncoder, sym::Symbol)
     end
 end
 
-@inline _membercall(f, e, x) = !(f isa Pipelines) && static_hasmethod(f, Tuple{typeof(e), typeof(x)}) ? f(e, x) : f(x)
+@inline _wants_encoder(f, e, x) = !(f isa Pipelines) && static_hasmethod(f, Tuple{typeof(e), typeof(x)})
+# Since Julia 1.12, `Base.Fix1`/`Fix2` are `Base.Fix{N}`, which has a Vararg call method, so `static_hasmethod` is
+# always true for them. They are only used here as one-argument functions (as they were on Julia <= 1.11).
+@inline _wants_encoder(::Union{Base.Fix1, Base.Fix2}, e, x) = false
+@inline _membercall(f, e, x) = _wants_encoder(f, e, x) ? f(e, x) : f(x)
 
 TextEncodeBase.process(::Type{<:TrfTextEncoder}) = nestedcall(string_getvalue)
 TextEncodeBase.tokenize(e::TrfTextEncoder, x) = getfield(e, :tokenizer)(_membercall(getfield(e, :annotate), e, x))

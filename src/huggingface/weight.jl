@@ -1,5 +1,4 @@
 using DataStructures: OrderedDict
-using JSON3
 using Pickle
 using SafeTensors
 
@@ -54,7 +53,7 @@ end
 function WeightStatus{format}(model_name; possible_files = nothing, kw...) where format
     possible_files = ensure_possible_files(possible_files, model_name; kw...)
     if indexmapname(WeightStatus{format}) in possible_files
-        weightmap = JSON3.read(read(hgf_file(model_name, indexmapname(WeightStatus{format}); kw...))).weight_map
+        weightmap = json_load(hgf_file(model_name, indexmapname(WeightStatus{format}); kw...)).weight_map
         indexmap = Dict{String, Set{String}}()
         for (weight, filename) in weightmap
             keyset = get!(()->Set{String}(), indexmap, hgf_file(model_name, filename; kw...))

@@ -1,5 +1,5 @@
 module WMT
-using Fetch
+using ..Datasets: gdownload
 using DataDeps
 using BytePairEncoding
 

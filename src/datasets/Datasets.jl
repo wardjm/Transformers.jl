@@ -1,9 +1,7 @@
 module Datasets
 
 using DataDeps
-using HTTP
 using WordTokenizers
-using Fetch
 
 using ..Transformers: Container
 
@@ -12,6 +10,7 @@ export dataset, datafile, get_batch, get_vocab, get_labels, batched
 
 
 include("./dataset.jl")
+include("./download.jl")
 
 include("translate/wmt.jl")
 using .WMT

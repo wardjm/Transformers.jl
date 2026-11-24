@@ -1,5 +1,5 @@
 module IWSLT
-using Fetch
+using ..Datasets: gdownload
 using DataDeps
 
 using ..Datasets: Dataset

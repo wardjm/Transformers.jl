@@ -16,7 +16,7 @@ See also: [`HGFConfig`](@ref)
 
 ```julia-repl
 julia> load_config("bert-base-cased")
-Transformers.HuggingFace.HGFConfig{:bert, JSON3.Object{Vector{UInt8}, Vector{UInt64}}, Nothing} with 19 entries:
+Transformers.HuggingFace.HGFConfig{:bert, JSON.Object{Symbol, Any}, Nothing} with 19 entries:
   :architectures                => ["BertForMaskedLM"]
   :attention_probs_dropout_prob => 0.1
   :gradient_checkpointing       => false
@@ -41,9 +41,9 @@ Transformers.HuggingFace.HGFConfig{:bert, JSON3.Object{Vector{UInt8}, Vector{UIn
 """
 load_config(model; kw...) = _load_config(load_config_dict(model; kw...))
 
-load_config_dict(model_name; kw...) = JSON3.read(read(hgf_model_config(model_name; kw...)))
+load_config_dict(model_name; kw...) = json_load(hgf_model_config(model_name; kw...))
 
-_load_config(cfg_file::AbstractString) = _load_config(JSON3.read(read(cfg_file)))
+_load_config(cfg_file::AbstractString) = _load_config(json_load(cfg_file))
 function _load_config(cfg)
     !haskey(cfg, :model_type) && error(
         """
@@ -93,7 +93,7 @@ function save_config(model_name, config; path = pwd(), config_name = CONFIG_NAME
         end
     end
     open(config_file, "w+") do io
-        JSON3.write(io, config)
+        JSON.json(io, config)
     end
     return config_file
 end

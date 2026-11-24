@@ -19,7 +19,7 @@ We can load a specific config of a specific model, no matter it's actually suppo
 
 ```julia-repl
 julia> load_config("google/pegasus-xsum")
-Transformers.HuggingFace.HGFConfig{:pegasus, JSON3.Object{Vector{UInt8}, Vector{UInt64}}, Dict{Symbol, Any}} with 45 entries:
+Transformers.HuggingFace.HGFConfig{:pegasus, JSON.Object{Symbol, Any}, Dict{Symbol, Any}} with 45 entries:
   :use_cache                       => true
   :d_model                         => 1024
   :scale_embedding                 => true

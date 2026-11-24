@@ -1,6 +1,17 @@
 @testset "Load" begin
     using Logging
     using Transformers.HuggingFace
+
+    # HuggingFaceApi (>= 0.2) downloads through the Downloads stdlib, whose Curl backend emits a debug record for
+    # every curl option it sets. Drop those and check that loading itself logs nothing.
+    is_curl_log(log) = nameof(log._module) === :Curl && nameof(parentmodule(log._module)) === :Downloads
+    function test_no_logs_except_curl(f)
+        logs, value = Test.collect_test_logs(f; min_level = Logging.Debug)
+        unexpected = filter(!is_curl_log, logs)
+        isempty(unexpected) || foreach(log -> @error("Unexpected log", log), unexpected)
+        @test isempty(unexpected)
+        return value
+    end
     model_list = Dict([
         :bart => [:Model],
         :bert => :[
@@ -30,8 +41,9 @@
             hgf_model_name = "hf-internal-testing/tiny-random-$hgf_type_name"
             cfg = load_config(hgf_model_name; cache = false)
             model = nothing
-            model = @test_logs min_level=Logging.Debug load_model(model_name, hgf_model_name, task_type;
-                                                                  config = cfg, cache = false)
+            model = test_no_logs_except_curl() do
+                load_model(model_name, hgf_model_name, task_type; config = cfg, cache = false)
+            end
             @test model isa model_type
             isnothing(model) && continue
             state_dict1 = HuggingFace.get_state_dict(model)
